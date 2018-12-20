@@ -26,4 +26,6 @@ from .mailparser import (
     parse_from_file_obj,
     parse_from_string)
 
-from .utils import get_header
+from .utils import (
+    get_header, 
+    parse_received)
