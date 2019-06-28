@@ -260,6 +260,8 @@ def parse_received(received):
     for pattern in RECEIVED_COMPILED_LIST:
         matches = [match for match in pattern.finditer(received)]
 
+        match = None
+
         if len(matches) == 0:
             # no matches for this clause, but it's ok! keep going!
             log.debug("No matches found for %s in %s" % (
@@ -268,15 +270,30 @@ def parse_received(received):
         elif len(matches) > 1:
             # uh, can't have more than one of each clause in a received.
             # so either there's more than one or the current regex is wrong
-            msg = "More than one match found for %s in %s" % (
-                pattern.pattern, received)
-            log.error(msg)
-            raise MailParserReceivedParsingError(msg)
-        else:
+
+            # NOTE: Redsift Mod: Hack for more than one from, if one of the from's is localhost.
+            first = matches[0].groupdict()
+            second = matches[1].groupdict()
+            if 'from' in first and 'from' in second:
+                if first['from'] == 'localhost':
+                    match = second
+                if second['from'] == 'localhost':
+                    match = first
+            if match:
+                msg = "(resolved) More than one match found for %s in %s" % (
+                    pattern.pattern, received)
+                log.debug(msg)
+            else:
+                msg = "More than one match found for %s in %s" % (
+                    pattern.pattern, received)
+                log.error(msg)
+                raise MailParserReceivedParsingError(msg)
+        if len(matches) == 1:
             # otherwise we have one matching clause!
             log.debug("Found one match for %s in %s" % (
                 pattern.pattern, received))
             match = matches[0].groupdict()
+        if match:
             if six.PY2:
                 values_by_clause[match.keys()[0]] = match.values()[0]
             elif six.PY3:
