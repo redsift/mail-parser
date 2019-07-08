@@ -51,9 +51,9 @@ RECEIVED_PATTERNS = [
         r'envelope-sender|\s+from|\s+by|\s+id|\s+for|\s+via|;))'
     ),
 
-    # NOTE: Redsift Mod: Added [^\w] to the start to ensure 'id' doesn't match against 'did'
+    # NOTE: Redsift Mod: Added [^\w\.] to the start to ensure 'id' doesn't match against 'did' or .id
     (
-        r'[^\w](?:id\s+(?P<id>.+?)(?:\s*[(]?envelope-from|\s*'
+        r'[^\w\.](?:id\s+(?P<id>.+?)(?:\s*[(]?envelope-from|\s*'
         r'[(]?envelope-sender|\s+from|\s+by|\s+with'
         r'(?! cipher)|\s+for|\s+via|;))'
     ),
