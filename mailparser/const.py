@@ -42,28 +42,27 @@ RECEIVED_PATTERNS = [
     # envelope-from and -sender seem to optionally have space and/or
     # ( before them other clauses must have whitespace before
     (
-        r'(?:by\s+(?P<by>.+?)(?:\s*[(]?envelope-from|\s*'
+        r'[^\w\.](?:by\s+(?P<by>.+?)(?:\s*[(]?envelope-from|\s*'
         r'[(]?envelope-sender|\s+from|\s+with'
         r'(?! cipher)|\s+id|\s+for|\s+via|;))'
     ),
     (
-        r'(?:with(?! cipher)\s+(?P<with>.+?)(?:\s*[(]?envelope-from|\s*[(]?'
+        r'[^\w\.](?:with(?! cipher)\s+(?P<with>.+?)(?:\s*[(]?envelope-from|\s*[(]?'
         r'envelope-sender|\s+from|\s+by|\s+id|\s+for|\s+via|;))'
     ),
 
-    # NOTE: Redsift Mod: Added [^\w\.] to the start to ensure 'id' doesn't match against 'did' or .id
     (
         r'[^\w\.](?:id\s+(?P<id>.+?)(?:\s*[(]?envelope-from|\s*'
         r'[(]?envelope-sender|\s+from|\s+by|\s+with'
         r'(?! cipher)|\s+for|\s+via|;))'
     ),
     (
-        r'(?:for\s+(?P<for>.+?)(?:\s*[(]?envelope-from|\s*[(]?'
+        r'[^\w\.](?:for\s+(?P<for>.+?)(?:\s*[(]?envelope-from|\s*[(]?'
         r'envelope-sender|\s+from|\s+by|\s+with'
         r'(?! cipher)|\s+id|\s+via|;))'
     ),
     (
-        r'(?:via\s+(?P<via>.+?)(?:\s*[(]?'
+        r'[^\w\.](?:via\s+(?P<via>.+?)(?:\s*[(]?'
         r'envelope-from|\s*[(]?envelope-sender|\s+'
         r'from|\s+by|\s+id|\s+for|\s+with(?! cipher)|;))'
     ),
