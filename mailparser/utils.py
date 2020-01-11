@@ -265,8 +265,8 @@ def parse_received(received):
 
         if len(matches) == 0:
             # no matches for this clause, but it's ok! keep going!
-            log.debug("No matches found for %s in %s" % (
-                pattern.pattern, received))
+            # log.debug("No matches found for %s in %s" % (
+            #     pattern.pattern, received))
             continue
         elif len(matches) > 1:
             # uh, can't have more than one of each clause in a received.
@@ -283,16 +283,16 @@ def parse_received(received):
             if match:
                 msg = "(resolved) More than one match found for %s in %s" % (
                     pattern.pattern, received)
-                log.debug(msg)
+                # log.debug(msg)
             else:
-                msg = "More than one match found for %s in %s" % (
-                    pattern.pattern, received)
-                log.error(msg)
+                # msg = "More than one match found for %s in %s" % (
+                #     pattern.pattern, received)
+                # log.error(msg)
                 raise MailParserReceivedParsingError(msg)
         if len(matches) == 1:
             # otherwise we have one matching clause!
-            log.debug("Found one match for %s in %s" % (
-                pattern.pattern, received))
+            # log.debug("Found one match for %s in %s" % (
+            #     pattern.pattern, received))
             match = matches[0].groupdict()
         if match:
             if six.PY2:
@@ -304,9 +304,9 @@ def parse_received(received):
 
     if len(values_by_clause) == 0:
         # we weren't able to match anything...
-        msg = "Unable to match any clauses in %s" % (received)
-        log.error(msg)
-        raise MailParserReceivedParsingError(msg)
+        # msg = "Unable to match any clauses in %s" % (received)
+        # log.error(msg)
+        raise MailParserReceivedParsingError("unable to match any clauses")
     return values_by_clause
 
 
