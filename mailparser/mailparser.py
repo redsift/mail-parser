@@ -277,24 +277,35 @@ class MailParser(object):
             # Save all defects
             self._defects.append(part_defects)
 
-    def _make_mail(self):
+    def _make_mail(self, complete=True):
         """
         This method assigns the right values to all tokens of email.
-        It sets an internal parameter with all tokens.
-        """
-        self._mail = {}
+        Returns a parsed object
 
-        for i in get_mail_keys(self.message):
+        Keyword Arguments:
+            complete {bool} -- If True returns all mails parts
+                                (default: {True})
+
+        Returns:
+            dict -- Parsed email object
+        """
+
+        mail = {}
+        keys = get_mail_keys(self.message, complete)
+
+        for i in keys:
             log.debug("Getting header or part {!r}".format(i))
             value = getattr(self, i)
             if value:
-                self._mail[i] = value
+                mail[i] = value
 
         # add defects
-        self._mail["has_defects"] = self.has_defects
+        mail["has_defects"] = self.has_defects
         if self.has_defects:
-            self._mail["defects"] = self.defects
-            self._mail["defects_categories"] = list(self.defects_categories)
+            mail["defects"] = self.defects
+            mail["defects_categories"] = list(self.defects_categories)
+
+        return mail
 
     def parse(self):
         """
@@ -334,31 +345,31 @@ class MailParser(object):
                 log.error("Failed to get epilogue part. Check raw mail.")
 
         # walk all mail parts
-        for p in parts:
-            p_string = ported_string(p.as_string())[:100] + "..."
+        for i, p in enumerate(parts):
             if not p.is_multipart():
                 filename = decode_header_part(p.get_filename())
                 charset = p.get_content_charset('utf-8')
                 charset_raw = p.get_content_charset()
-                log.debug("Charset {!r} for part {!r}".format(
-                    charset, p_string))
+                log.debug("Charset {!r} part {!r}".format(charset, i))
 
                 if filename:
-                    log.debug("Email part {!r} is an attachment".format(
-                        p_string))
-                    log.debug("Filename {!r} for part {!r}".format(
-                        filename, p_string))
+                    log.debug("Email part {!r} is an attachment".format(i))
+                    log.debug("Filename {!r} part {!r}".format(filename, i))
                     binary = False
                     mail_content_type = ported_string(p.get_content_type())
-                    log.debug("Mail content type {!r} for part {!r}".format(
-                        mail_content_type, p_string))
+                    log.debug("Mail content type {!r} part {!r}".format(
+                        mail_content_type, i))
                     transfer_encoding = ported_string(
                         p.get('content-transfer-encoding', '')).lower()
-                    log.debug("Transfer encoding {!r} for part {!r}".format(
-                        transfer_encoding, p_string))
+                    log.debug("Transfer encoding {!r} part {!r}".format(
+                        transfer_encoding, i))
                     content_id = ported_string(p.get('content-id'))
-                    log.debug("content-id {!r} for part {!r}".format(
-                        content_id, p_string))
+                    log.debug("content-id {!r} part {!r}".format(
+                        content_id, i))
+                    content_disposition = ported_string(
+                        p.get('content-disposition'))
+                    log.debug("content-disposition {!r} part {!r}".format(
+                        content_disposition, i))
 
                     if transfer_encoding == "base64" or (
                        transfer_encoding == "quoted-\
@@ -366,15 +377,14 @@ class MailParser(object):
 
                         payload = p.get_payload(decode=False)
                         binary = True
-                        log.debug(
-                            "Filename {!r} for part {!r} is binary".format(
-                                filename, p_string))
+                        log.debug("Filename {!r} part {!r} is binary".format(
+                            filename, i))
                     else:
                         payload = ported_string(
                             p.get_payload(decode=True), encoding=charset)
                         log.debug(
-                            "Filename {!r} for part {!r} is not binary".format(
-                                filename, p_string))
+                            "Filename {!r} part {!r} is not binary".format(
+                                filename, i))
 
                     self._attachments.append({
                         "filename": filename,
@@ -382,11 +392,11 @@ class MailParser(object):
                         "binary": binary,
                         "mail_content_type": mail_content_type,
                         "content-id": content_id,
+                        "content-disposition": content_disposition,
                         "charset": charset_raw,
                         "content_transfer_encoding": transfer_encoding})
                 else:
-                    log.debug("Email part {!r} is not an attachment".format(
-                        p_string))
+                    log.debug("Email part {!r} is not an attachment".format(i))
                     payload = ported_string(
                         p.get_payload(decode=True), encoding=charset)
                     if payload:
@@ -394,10 +404,12 @@ class MailParser(object):
                             self._text_html.append(payload)
                         else:
                             self._text_plain.append(payload)
+        else:
+            # Parsed object mail with all parts
+            self._mail = self._make_mail()
 
-        # Parsed object mail
-        self._make_mail()
-        return self
+            # Parsed object mail with mains parts
+            self._mail_partial = self._make_mail(complete=False)
 
     def get_server_ipaddress(self, trust):
         """
@@ -598,6 +610,23 @@ class MailParser(object):
         if self.mail.get("date"):
             self._mail["date"] = self.date.isoformat()
         return json.dumps(self.mail, ensure_ascii=False, indent=2)
+
+    @property
+    def mail_partial(self):
+        """
+        Return the Python object of mail parsed
+        with only the mains headers
+        """
+        return self._mail_partial
+
+    @property
+    def mail_partial_json(self):
+        """
+        Return the JSON of mail parsed partial
+        """
+        if self.mail_partial.get("date"):
+            self._mail_partial["date"] = self.date.isoformat()
+        return json.dumps(self.mail_partial, ensure_ascii=False, indent=2)
 
     @property
     def defects(self):

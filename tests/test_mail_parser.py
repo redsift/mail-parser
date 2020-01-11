@@ -35,6 +35,7 @@ from mailparser.utils import (
     convert_mail_date,
     fingerprints,
     get_header,
+    get_mail_keys,
     get_to_domains,
     msgconvert,
     ported_open,
@@ -90,6 +91,24 @@ class TestMailParser(unittest.TestCase):
         self.assertIsInstance(mail.text_html, list)
         self.assertIsInstance(mail.text_html_json, six.text_type)
         self.assertEqual(len(mail.text_html), 1)
+
+    def test_get_mail_keys(self):
+        mail = mailparser.parse_from_file(mail_test_11)
+        all_parts = get_mail_keys(mail.message)
+        mains_parts = get_mail_keys(mail.message, False)
+        self.assertNotEqual(all_parts, mains_parts)
+        self.assertIn("message-id", mains_parts)
+        self.assertIn("x-filterd-recvd-size", all_parts)
+        self.assertNotIn("x-filterd-recvd-size", mains_parts)
+
+    def test_mail_partial(self):
+        mail = mailparser.parse_from_file(mail_test_10)
+        self.assertNotEqual(mail.mail, mail.mail_partial)
+        self.assertIn("message-id", mail.mail_partial)
+        self.assertIn("x-ibm-av-version", mail.mail)
+        self.assertNotIn("x-ibm-av-version", mail.mail_partial)
+        result = mail.mail_partial_json
+        self.assertIsInstance(result, six.text_type)
 
     def test_not_parsed_received(self):
         mail = mailparser.parse_from_file(mail_test_9)
@@ -359,6 +378,12 @@ class TestMailParser(unittest.TestCase):
         self.assertEqual(
             result["attachments"][0]["charset"],
             "iso-8859-1")
+        self.assertEqual(
+            result["attachments"][0]["content-disposition"], "inline")
+
+        mail = mailparser.parse_from_file(mail_malformed_1)
+        attachments = mail.mail["attachments"]
+        self.assertEqual(attachments[0]["content-disposition"], "")
 
     def test_from_bytes(self):
         if six.PY2:
@@ -470,7 +495,7 @@ class TestMailParser(unittest.TestCase):
         self.assertIsInstance(result, list)
 
         result = mail.timezone
-        self.assertEqual(result, "+1")
+        self.assertEqual(result, "+1.0")
 
     def test_get_to_domains(self):
         m = mailparser.parse_from_file(mail_test_6)
@@ -489,11 +514,14 @@ class TestMailParser(unittest.TestCase):
     def test_convert_mail_date(self):
         s = "Mon, 20 Mar 2017 05:12:54 +0600"
         d, t = convert_mail_date(s)
-        self.assertEqual(t, "+6")
+        self.assertEqual(t, "+6.0")
         self.assertEqual(str(d), "2017-03-19 23:12:54")
         s = "Mon, 20 Mar 2017 05:12:54 -0600"
         d, t = convert_mail_date(s)
-        self.assertEqual(t, "-6")
+        self.assertEqual(t, "-6.0")
+        s = "Mon, 11 Dec 2017 15:27:44 +0530"
+        d, t = convert_mail_date(s)
+        self.assertEqual(t, "+5.5")
 
     def test_ported_string(self):
         raw_data = ""
