@@ -24,6 +24,7 @@ from email.errors import HeaderParseError
 from email.header import decode_header
 from unicodedata import normalize
 
+import base64
 import datetime
 import email
 import functools
@@ -264,8 +265,8 @@ def parse_received(received):
 
         if len(matches) == 0:
             # no matches for this clause, but it's ok! keep going!
-            log.debug("No matches found for %s in %s" % (
-                pattern.pattern, received))
+            # log.debug("No matches found for %s in %s" % (
+            #     pattern.pattern, received))
             continue
         elif len(matches) > 1:
             # uh, can't have more than one of each clause in a received.
@@ -282,16 +283,16 @@ def parse_received(received):
             if match:
                 msg = "(resolved) More than one match found for %s in %s" % (
                     pattern.pattern, received)
-                log.debug(msg)
+                # log.debug(msg)
             else:
-                msg = "More than one match found for %s in %s" % (
-                    pattern.pattern, received)
-                log.error(msg)
+                # msg = "More than one match found for %s in %s" % (
+                #     pattern.pattern, received)
+                # log.error(msg)
                 raise MailParserReceivedParsingError(msg)
         if len(matches) == 1:
             # otherwise we have one matching clause!
-            log.debug("Found one match for %s in %s" % (
-                pattern.pattern, received))
+            # log.debug("Found one match for %s in %s" % (
+            #     pattern.pattern, received))
             match = matches[0].groupdict()
         if match:
             if six.PY2:
@@ -303,9 +304,9 @@ def parse_received(received):
 
     if len(values_by_clause) == 0:
         # we weren't able to match anything...
-        msg = "Unable to match any clauses in %s" % (received)
-        log.error(msg)
-        raise MailParserReceivedParsingError(msg)
+        # msg = "Unable to match any clauses in %s" % (received)
+        # log.error(msg)
+        raise MailParserReceivedParsingError("unable to match any clauses")
     return values_by_clause
 
 
@@ -360,8 +361,9 @@ def convert_mail_date(date):
     t = email.utils.mktime_tz(d)
     log.debug("Date parsed in timestamp: {!r}".format(t))
     date_utc = datetime.datetime.utcfromtimestamp(t)
-    timezone = d[9] / 3600 if d[9] else 0
-    timezone = "{:+.0f}".format(timezone)
+    timezone = d[9] / 3600.0 if d[9] else 0
+    timezone = "{:+.1f}".format(timezone)
+    log.debug("Calculated timezone: {!r}".format(timezone))
     return date_utc, timezone
 
 
@@ -480,18 +482,26 @@ def get_header(message, name):
     return six.text_type()
 
 
-def get_mail_keys(message):
+def get_mail_keys(message, complete=True):
     """
     Given an email.message.Message, return a set with all email parts to get
 
     Args:
         message (email.message.Message): email message object
+        complete (bool): if True returns all email headers
 
     Returns:
         set with all email parts
     """
-    all_headers_keys = {i.lower() for i in message.keys()}
-    all_parts = ADDRESSES_HEADERS | OTHERS_PARTS | all_headers_keys
+
+    if complete:
+        log.debug("Get all headers")
+        all_headers_keys = {i.lower() for i in message.keys()}
+        all_parts = ADDRESSES_HEADERS | OTHERS_PARTS | all_headers_keys
+    else:
+        log.debug("Get only mains headers")
+        all_parts = ADDRESSES_HEADERS | OTHERS_PARTS
+
     log.debug("All parts to get: {}".format(", ".join(all_parts)))
     return all_parts
 
@@ -515,7 +525,7 @@ def print_attachments(attachments, flag_hash):  # pragma: no cover
     if flag_hash:
         for i in attachments:
             if i.get("content_transfer_encoding") == "base64":
-                payload = i["payload"].decode("base64")
+                payload = base64.b64decode(i["payload"])
             else:
                 payload = i["payload"]
 
@@ -524,3 +534,37 @@ def print_attachments(attachments, flag_hash):  # pragma: no cover
 
     for i in attachments:
         safe_print(json.dumps(i, ensure_ascii=False, indent=4))
+
+
+def write_attachments(attachments, base_path):  # pragma: no cover
+    for a in attachments:
+        write_sample(
+            binary=a["binary"],
+            payload=a["payload"],
+            path=base_path,
+            filename=a["filename"],
+        )
+
+
+def write_sample(binary, payload, path, filename):  # pragma: no cover
+    """
+    This function writes a sample on file system.
+
+    Args:
+        binary (bool): True if it's a binary file
+        payload: payload of sample, in base64 if it's a binary
+        path (string): path of file
+        filename (string): name of file
+        hash_ (string): file hash
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    sample = os.path.join(path, filename)
+
+    if binary:
+        with open(sample, "wb") as f:
+            f.write(base64.b64decode(payload))
+    else:
+        with open(sample, "w") as f:
+            f.write(payload)
