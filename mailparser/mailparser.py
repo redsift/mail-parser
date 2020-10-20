@@ -42,6 +42,7 @@ from .utils import (
     ported_open,
     ported_string,
     receiveds_parsing,
+    write_attachments,
 )
 
 from .exceptions import MailParserEnvironmentError
@@ -246,6 +247,7 @@ class MailParser(object):
         self._attachments = []
         self._text_plain = []
         self._text_html = []
+        self._text_not_managed = []
         self._defects = []
         self._defects_categories = set()
         self._has_defects = False
@@ -347,11 +349,16 @@ class MailParser(object):
         # walk all mail parts
         for i, p in enumerate(parts):
             if not p.is_multipart():
-                filename = decode_header_part(p.get_filename())
                 charset = p.get_content_charset('utf-8')
                 charset_raw = p.get_content_charset()
                 log.debug("Charset {!r} part {!r}".format(charset, i))
+                content_id = ported_string(p.get('content-id'))
+                log.debug("content-id {!r} part {!r}".format(
+                    content_id, i))
+                filename = decode_header_part(
+                    p.get_filename("{}".format(content_id)))
 
+                # this is an attachment
                 if filename:
                     log.debug("Email part {!r} is an attachment".format(i))
                     log.debug("Filename {!r} part {!r}".format(filename, i))
@@ -363,9 +370,6 @@ class MailParser(object):
                         p.get('content-transfer-encoding', '')).lower()
                     log.debug("Transfer encoding {!r} part {!r}".format(
                         transfer_encoding, i))
-                    content_id = ported_string(p.get('content-id'))
-                    log.debug("content-id {!r} part {!r}".format(
-                        content_id, i))
                     content_disposition = ported_string(
                         p.get('content-disposition'))
                     log.debug("content-disposition {!r} part {!r}".format(
@@ -395,6 +399,8 @@ class MailParser(object):
                         "content-disposition": content_disposition,
                         "charset": charset_raw,
                         "content_transfer_encoding": transfer_encoding})
+
+                # this isn't an attachments
                 else:
                     log.debug("Email part {!r} is not an attachment".format(i))
                     payload = ported_string(
@@ -402,8 +408,13 @@ class MailParser(object):
                     if payload:
                         if p.get_content_subtype() == 'html':
                             self._text_html.append(payload)
-                        else:
+                        elif p.get_content_subtype() == 'plain':
                             self._text_plain.append(payload)
+                        else:
+                            log.warning(
+                                'Email content {!r} not handled'.format(
+                                    p.get_content_subtype()))
+                            self._text_not_managed.append(payload)
         else:
             # Parsed object mail with all parts
             self._mail = self._make_mail()
@@ -463,6 +474,16 @@ class MailParser(object):
                         if not ip.is_private:
                             log.debug("IP {!r} not private".format(ip_str))
                             return ip_str
+
+    def write_attachments(self, base_path):
+        """ This method writes the attachments of mail on disk
+
+        Arguments:
+            base_path {str} -- Base path where write the attachments
+        """
+        write_attachments(
+            attachments=self.attachments,
+            base_path=base_path)
 
     def __getattr__(self, name):
         name = name.strip("_").lower()
@@ -528,7 +549,7 @@ class MailParser(object):
         "--- mail_boundary ---"
         """
         return "\n--- mail_boundary ---\n".join(
-            self.text_plain + self.text_html)
+            self.text_plain + self.text_html + self.text_not_managed)
 
     @property
     def headers(self):
@@ -560,6 +581,13 @@ class MailParser(object):
         Return a list of all text html parts of email.
         """
         return self._text_html
+
+    @property
+    def text_not_managed(self):
+        """
+        Return a list of all text not managed of email.
+        """
+        return self._text_not_managed
 
     @property
     def date(self):
