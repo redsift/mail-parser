@@ -25,7 +25,7 @@ from setuptools import setup
 
 current = os.path.realpath(os.path.dirname(__file__))
 
-with io.open(os.path.join(current, 'README.rst'), encoding="utf-8") as f:
+with io.open(os.path.join(current, 'README.md'), encoding="utf-8") as f:
     long_description = f.read()
 
 with open(os.path.join(current, 'requirements.txt')) as f:
@@ -41,6 +41,7 @@ setup(
     license="Apache License, Version 2.0",
     url="https://github.com/SpamScope/mail-parser",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     version=__version__,
     author="Fedele Mantuano",
     author_email="mantuano.fedele@gmail.com",
